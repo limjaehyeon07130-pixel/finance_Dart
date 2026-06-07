@@ -27,8 +27,8 @@
     <!-- TOP TERMINAL HEADER -->
     <header class="border-b border-slate-800 pb-4 mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-            <h1 class="text-2xl font-black tracking-tight text-emerald-400">QUANT-ANALYST INVESTMENT COMMITTEE TERMINAL v4.0</h1>
-            <p class="text-xs text-slate-400 mt-1">실시간 DART API 연동 및 K_Corp 고유번호 매퍼 탑재 통합 스크리닝 대시보드</p>
+            <h1 class="text-2xl font-black tracking-tight text-emerald-400">QUANT-ANALYST INVESTMENT COMMITTEE TERMINAL v4.5</h1>
+            <p class="text-xs text-slate-400 mt-1">O(1) 초고속 인메모리 맵퍼 & 다중 프록시 연동 스크리닝 대시보드</p>
         </div>
         <div class="flex items-center gap-3">
             <div class="bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-800 flex items-center gap-2">
@@ -103,13 +103,16 @@
                 </div>
             </div>
 
-            <!-- API SEARCH ENGINE -->
-            <div class="bg-slate-950 p-3 border border-slate-800 rounded-lg">
-                <label class="text-[10px] font-bold text-blue-400 block mb-1">🔍 K_Corp 맵퍼 기반 기업 검색</label>
+            <!-- API SEARCH ENGINE (AUTOCOMPLETE FEATURE) -->
+            <div class="bg-slate-950 p-3 border border-slate-800 rounded-lg relative">
+                <label class="text-[10px] font-bold text-blue-400 block mb-1">🔍 K_Corp 맵퍼 기반 초고속 검색</label>
                 <div class="flex gap-1.5">
-                    <input type="text" id="searchCompanyName" placeholder="다코, 브레인, 맵스리얼티 등..." class="flex-1 bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs text-white focus:outline-none">
+                    <input type="text" id="searchCompanyName" placeholder="초성 혹은 이름 입력..." class="flex-1 bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs text-white focus:outline-none" oninput="handleSearchInput()">
                     <button onclick="searchAndFetchData()" class="px-3 bg-blue-600 hover:bg-blue-500 text-xs font-bold rounded cursor-pointer">검색</button>
                 </div>
+                <!-- Autocomplete Dropdown List -->
+                <div id="autocompleteList" class="absolute left-3 right-3 top-14 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl max-h-40 overflow-y-auto hidden z-50"></div>
+                
                 <div class="grid grid-cols-2 gap-2 mt-2 text-[10px] text-slate-400 font-mono bg-slate-900 p-2 rounded">
                     <div>고유번호: <span id="targetCorpCode" class="text-emerald-400 font-bold">-</span></div>
                     <div>상장구분: <span id="targetCorpType" class="text-slate-300 font-bold">-</span></div>
@@ -140,7 +143,7 @@
                     <div>
                         <label class="text-[9px] text-slate-400 block">우회 프록시</label>
                         <select id="proxySelector" class="w-full bg-slate-900 border border-slate-800 rounded text-xs p-1">
-                            <option value="allorigins" selected>AllOrigins (기본)</option>
+                            <option value="allorigins" selected>AllOrigins (추천)</option>
                             <option value="corsanywhere">CORS-Anywhere</option>
                             <option value="direct">Direct (직통)</option>
                         </select>
@@ -156,7 +159,7 @@
                         <label class="text-xs font-bold text-slate-300">DART 주요계정 원천 데이터 (JSON)</label>
                         <span class="text-[10px] text-slate-500 font-mono">탭 1</span>
                     </div>
-                    <textarea id="inputDartJson" class="w-full h-24 bg-slate-950 border border-slate-800 rounded-lg p-2 font-mono text-[10px] text-emerald-400 focus:outline-none resize-none leading-relaxed"></textarea>
+                    <textarea id="inputDartJson" class="w-full h-24 bg-slate-950 border border-slate-800 rounded-lg p-2 font-mono text-[10px] text-emerald-400 focus:outline-none resize-none leading-relaxed" placeholder="API 데이터 전처리 구역"></textarea>
                 </div>
 
                 <div class="grid grid-cols-2 gap-3">
@@ -439,7 +442,8 @@
     <!-- JAVASCRIPT VALUATION LOGIC ENGINE -->
     <script>
         // 글로벌 상태 변수
-        let corpDatabase = []; // 로컬 엑셀 또는 CSV로부터 수집된 기업 고유번호 색인 데이터
+        let corpDatabaseMap = {}; // 초고속 해시 맵 구조로 개편 (key: corp_name)
+        let corpNameList = []; // 자동완성용 배열
         let selectedCorpCode = "00434003"; // 기본값 다코
         let selectedCorpName = "다코";
 
@@ -604,7 +608,8 @@
                 const worksheet = workbook.Sheets[firstSheetName];
                 const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
                 
-                corpDatabase = [];
+                corpDatabaseMap = {};
+                corpNameList = [];
                 
                 let header = rows[0];
                 let codeIdx = 0;
@@ -626,16 +631,23 @@
                             rawCode = "0" + rawCode;
                         }
                         
-                        corpDatabase.push({
+                        const corpName = String(row[nameIdx]).trim();
+                        const keyName = corpName.replace(/\s+/g, "").toLowerCase();
+                        
+                        const corpObj = {
                             corp_code: rawCode,
-                            corp_name: String(row[nameIdx]).trim(),
+                            corp_name: corpName,
                             stock_code: row[stockIdx] ? String(row[stockIdx]).trim() : ""
-                        });
+                        };
+                        
+                        corpDatabaseMap[keyName] = corpObj;
+                        corpNameList.push(corpObj);
                     }
                 }
 
-                if (corpDatabase.length > 0) {
-                    const statusText = `${corpDatabase.length.toLocaleString()}개 실존기업 색인 완료`;
+                const totalCount = Object.keys(corpDatabaseMap).length;
+                if (totalCount > 0) {
+                    const statusText = `${totalCount.toLocaleString()}개 실존기업 색인 완료`;
                     document.getElementById("indexStatus").innerText = statusText;
                     document.getElementById("indexStatus").className = "text-emerald-400 font-bold";
                     document.getElementById("statusPulse").className = "w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse";
@@ -643,22 +655,60 @@
             };
         }
 
-        // 기업 통합 검색 엔진
+        // 키 입력 시 동적 제안 목록 처리 알고리즘 (O(1) 기반 속도 한계 돌파)
+        function handleSearchInput() {
+            const query = document.getElementById("searchCompanyName").value.trim().replace(/\s+/g, "").toLowerCase();
+            const listContainer = document.getElementById("autocompleteList");
+            
+            if (!query || corpNameList.length === 0) {
+                listContainer.classList.add("hidden");
+                return;
+            }
+
+            // 최대 5개 매칭 결과만 필터링하여 렌더링 성능 극대화
+            const matched = corpNameList.filter(item => 
+                item.corp_name.replace(/\s+/g, "").toLowerCase().includes(query)
+            ).slice(0, 5);
+
+            if (matched.length > 0) {
+                listContainer.innerHTML = matched.map(item => `
+                    <div class="px-3 py-2 text-xs text-slate-300 hover:bg-slate-800 cursor-pointer border-b border-slate-800 flex justify-between" onclick="selectAutocomplete('${item.corp_name}')">
+                        <span class="font-bold text-white">${item.corp_name}</span>
+                        <span class="text-[10px] text-slate-500 font-mono">${item.stock_code ? '상장 (' + item.stock_code + ')' : '비상장'}</span>
+                    </div>
+                `).join("");
+                listContainer.classList.remove("hidden");
+            } else {
+                listContainer.classList.add("hidden");
+            }
+        }
+
+        function selectAutocomplete(name) {
+            document.getElementById("searchCompanyName").value = name;
+            document.getElementById("autocompleteList").classList.add("hidden");
+            searchAndFetchData();
+        }
+
+        // 기업 통합 검색 엔진 (O(1) 해시 매핑 검색 적용)
         function searchAndFetchData() {
-            const queryName = document.getElementById("searchCompanyName").value.trim().replace(/\s+/g, "");
+            const queryName = document.getElementById("searchCompanyName").value.trim().replace(/\s+/g, "").toLowerCase();
             if (!queryName) {
                 alert("검색할 기업 명칭을 입력해주십시오.");
                 return;
             }
 
-            if (corpDatabase.length === 0) {
+            if (Object.keys(corpDatabaseMap).length === 0) {
                 alert("제공해주신 실제 기업 고유번호 파일(K_Corp.xlsx 등)을 우측 상단 매퍼 영역에 먼저 넣어주십시오.");
                 return;
             }
 
-            let matched = corpDatabase.find(c => c.corp_name.replace(/\s+/g, "") === queryName);
+            // O(1) 해시 테이블 직접 접근을 통한 초고속 매칭
+            let matched = corpDatabaseMap[queryName];
+            
+            // 전방 부분 일치 Fallback 검색
             if (!matched) {
-                matched = corpDatabase.find(c => c.corp_name.replace(/\s+/g, "").includes(queryName));
+                const matchedKey = Object.keys(corpDatabaseMap).find(k => k.includes(queryName));
+                if (matchedKey) matched = corpDatabaseMap[matchedKey];
             }
 
             if (!matched) {
@@ -672,6 +722,9 @@
             document.getElementById("inputTargetCorp").value = matched.corp_name;
             document.getElementById("targetCorpCode").innerText = matched.corp_code;
             document.getElementById("targetCorpType").innerText = matched.stock_code ? "상장사 (" + matched.stock_code + ")" : "비상장사";
+            
+            // 자동완성 레이어 하이딩
+            document.getElementById("autocompleteList").classList.add("hidden");
         }
 
         // DART 실시간 API 호출 연동 및 CORS 프록시 우회
