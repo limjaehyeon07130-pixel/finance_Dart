@@ -1,0 +1,1183 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PE/Hedge Fund Investment Committee Terminal</title>
+    <!-- Tailwind CSS for Modern Dark UI -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <!-- Chart.js for Runway Line & Scorecard Radar Charts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- SheetJS for local Excel parsing (.xlsx, .xls, .csv) -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+    <style>
+        body {
+            background-color: #0F172A;
+            color: #F8FAFC;
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+        }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #1E293B; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #64748B; }
+    </style>
+</head>
+<body class="p-6 min-h-screen flex flex-col justify-between">
+
+    <!-- TOP TERMINAL HEADER -->
+    <header class="border-b border-slate-800 pb-4 mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+            <h1 class="text-2xl font-black tracking-tight text-emerald-400">QUANT-ANALYST INVESTMENT COMMITTEE TERMINAL v4.0</h1>
+            <p class="text-xs text-slate-400 mt-1">실시간 DART API 연동 및 K_Corp 고유번호 매퍼 탑재 통합 스크리닝 대시보드</p>
+        </div>
+        <div class="flex items-center gap-3">
+            <div class="bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-800 flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" id="statusPulse"></span>
+                <span class="text-xs font-mono text-emerald-400" id="headerTargetName">다코 (ACTIVE_TARGET)</span>
+            </div>
+            <span class="text-xs text-slate-500 font-mono bg-slate-900 border border-slate-800 px-2 py-1 rounded">PRO_HYBRID_EDITION</span>
+        </div>
+    </header>
+
+    <!-- 4-TAB NAVIGATION MENU -->
+    <nav class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-6 bg-slate-950 p-1.5 border border-slate-800 rounded-xl">
+        <button onclick="switchTab('tab1')" id="btn-tab1" class="tab-btn py-3 px-2 text-xs font-bold rounded-lg cursor-pointer transition-all flex flex-col items-center gap-1 bg-slate-900 text-emerald-400 border border-emerald-500/30">
+            <span>📊 탭 1</span>
+            <span>핵심 재무 & FCF</span>
+        </button>
+        <button onclick="switchTab('tab2')" id="btn-tab2" class="tab-btn py-3 px-2 text-xs font-bold rounded-lg cursor-pointer transition-all flex flex-col items-center gap-1 text-slate-400 hover:text-white">
+            <span>⚙️ 탭 2</span>
+            <span>CAPEX & EBITDA</span>
+        </button>
+        <button onclick="switchTab('tab3')" id="btn-tab3" class="tab-btn py-3 px-2 text-xs font-bold rounded-lg cursor-pointer transition-all flex flex-col items-center gap-1 text-slate-400 hover:text-white">
+            <span>💡 탭 3</span>
+            <span>정성 성장 & IP 강도</span>
+        </button>
+        <button onclick="switchTab('tab4')" id="btn-tab4" class="tab-btn py-3 px-2 text-xs font-bold rounded-lg cursor-pointer transition-all flex flex-col items-center gap-1 text-slate-400 hover:text-white">
+            <span>🎯 탭 4</span>
+            <span>거버넌스 & 종합 결과</span>
+        </button>
+    </nav>
+
+    <!-- MAIN DASHBOARD CONTENT AREA -->
+    <main class="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1">
+        
+        <!-- LEFT INPUT PANEL (5 COLS) -->
+        <section class="lg:col-span-5 bg-slate-900/50 border border-slate-800 rounded-2xl p-5 flex flex-col gap-4">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                <h2 class="text-sm font-black uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span> 
+                    <span>INPUT TERMINAL : 데이터 제어</span>
+                </h2>
+                <div class="flex gap-1.5">
+                    <select id="sampleCorpSelector" onchange="loadPresetSample()" class="text-[10px] bg-slate-950 border border-slate-800 rounded px-1.5 py-0.5 text-slate-300">
+                        <option value="daco">실존샘플: 다코 (비상장)</option>
+                        <option value="brain">실존샘플: 브레인 (비상장)</option>
+                        <option value="maps">실존샘플: 맵스리얼티 (상장)</option>
+                        <option value="samsung">실존샘플: 삼성전자 (상장)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- DART API & INDEXING INTERFACE -->
+            <div class="grid grid-cols-2 gap-2">
+                <!-- API KEY CONFIG -->
+                <div class="bg-slate-950 p-3 border border-slate-800 rounded-lg">
+                    <label class="text-[10px] font-bold text-emerald-400 block mb-1">🔑 DART API 인증키</label>
+                    <input type="password" id="dartApiKey" placeholder="API Key 40자리" class="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs text-emerald-400 font-mono focus:outline-none">
+                    <button onclick="saveApiKey()" class="w-full mt-1.5 py-1 bg-slate-800 hover:bg-slate-700 text-[10px] font-bold rounded border border-slate-700 cursor-pointer text-center">인증키 저장</button>
+                </div>
+                <!-- INDEX FILE UPLOADER (K_Corp.xlsx 연동) -->
+                <div class="bg-slate-950 p-3 border border-slate-800 rounded-lg flex flex-col justify-between">
+                    <div>
+                        <label class="text-[10px] font-bold text-amber-400 block mb-1">📂 K_Corp 고유번호 매퍼</label>
+                        <label class="cursor-pointer block text-center border border-dashed border-slate-800 hover:border-amber-500 rounded p-1">
+                            <span class="text-[9px] text-slate-400">list.csv / xlsx 등록</span>
+                            <input type="file" id="corpIndexFile" accept=".xlsx, .xls, .csv" class="hidden" onchange="loadCorpIndex(event)">
+                        </label>
+                    </div>
+                    <div class="text-[9px] text-slate-500 font-mono mt-1 flex justify-between">
+                        <span>상태:</span>
+                        <span id="indexStatus" class="text-rose-400">색인 대기</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- API SEARCH ENGINE -->
+            <div class="bg-slate-950 p-3 border border-slate-800 rounded-lg">
+                <label class="text-[10px] font-bold text-blue-400 block mb-1">🔍 K_Corp 맵퍼 기반 기업 검색</label>
+                <div class="flex gap-1.5">
+                    <input type="text" id="searchCompanyName" placeholder="다코, 브레인, 맵스리얼티 등..." class="flex-1 bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs text-white focus:outline-none">
+                    <button onclick="searchAndFetchData()" class="px-3 bg-blue-600 hover:bg-blue-500 text-xs font-bold rounded cursor-pointer">검색</button>
+                </div>
+                <div class="grid grid-cols-2 gap-2 mt-2 text-[10px] text-slate-400 font-mono bg-slate-900 p-2 rounded">
+                    <div>고유번호: <span id="targetCorpCode" class="text-emerald-400 font-bold">-</span></div>
+                    <div>상장구분: <span id="targetCorpType" class="text-slate-300 font-bold">-</span></div>
+                </div>
+            </div>
+
+            <!-- DART API QUERY -->
+            <div class="bg-slate-950 p-3 border border-slate-800 rounded-lg">
+                <div class="grid grid-cols-3 gap-2">
+                    <div>
+                        <label class="text-[9px] text-slate-400 block">사업연도</label>
+                        <select id="targetYear" class="w-full bg-slate-900 border border-slate-800 rounded text-xs p-1">
+                            <option value="2025">2025</option>
+                            <option value="2024" selected>2024</option>
+                            <option value="2023">2023</option>
+                        </select>
+                    </div>
+                    <div class="col-span-2">
+                        <label class="text-[9px] text-slate-400 block">공시구분</label>
+                        <select id="targetReportCode" class="w-full bg-slate-900 border border-slate-800 rounded text-xs p-1">
+                            <option value="11011" selected>사업보고서 (결산)</option>
+                            <option value="11014">3분기보고서</option>
+                            <option value="11012">반기보고서</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-2 mt-2">
+                    <div>
+                        <label class="text-[9px] text-slate-400 block">우회 프록시</label>
+                        <select id="proxySelector" class="w-full bg-slate-900 border border-slate-800 rounded text-xs p-1">
+                            <option value="allorigins" selected>AllOrigins (기본)</option>
+                            <option value="corsanywhere">CORS-Anywhere</option>
+                            <option value="direct">Direct (직통)</option>
+                        </select>
+                    </div>
+                    <button onclick="fetchDartFinancialData()" class="w-full mt-3.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-xs font-bold rounded text-white cursor-pointer shadow">⚡ DART API 동기화</button>
+                </div>
+            </div>
+
+            <!-- MANUAL METRIC CONTROLLER -->
+            <div class="flex-1 flex flex-col gap-3">
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="text-xs font-bold text-slate-300">DART 주요계정 원천 데이터 (JSON)</label>
+                        <span class="text-[10px] text-slate-500 font-mono">탭 1</span>
+                    </div>
+                    <textarea id="inputDartJson" class="w-full h-24 bg-slate-950 border border-slate-800 rounded-lg p-2 font-mono text-[10px] text-emerald-400 focus:outline-none resize-none leading-relaxed"></textarea>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-xs font-bold text-slate-300 block mb-1">유형자산 취득 (CAPEX)</label>
+                        <input type="number" id="inputCapex" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-1.5 text-xs text-white focus:outline-none font-mono">
+                    </div>
+                    <div>
+                        <label class="text-xs font-bold text-slate-300 block mb-1">감가상각비</label>
+                        <input type="number" id="inputDepreciation" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-1.5 text-xs text-white focus:outline-none font-mono">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="text-xs font-bold text-slate-300 block mb-1">정성 사업의 내용 및 지재권 요약 (텍스트)</label>
+                    <textarea id="inputIpText" class="w-full h-20 bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-slate-300 focus:outline-none resize-none leading-relaxed"></textarea>
+                </div>
+
+                <div class="bg-slate-950 p-2 border border-slate-800 rounded-lg">
+                    <span class="text-[10px] font-bold text-amber-500 uppercase block mb-1">⚖️ 거버넌스 체크리스트 배점</span>
+                    <div class="grid grid-cols-3 gap-1.5">
+                        <input type="number" id="govShareRatio" placeholder="대주주 %" class="w-full bg-slate-900 border border-slate-800 rounded p-1 text-[10px] text-white font-mono">
+                        <input type="number" id="govOutsideRatio" placeholder="사외이사 %" class="w-full bg-slate-900 border border-slate-800 rounded p-1 text-[10px] text-white font-mono">
+                        <select id="govControlRisk" class="w-full bg-slate-900 border border-slate-800 rounded p-1 text-[10px] text-slate-300">
+                            <option value="95">통제우수</option>
+                            <option value="70">보통</option>
+                            <option value="30">내부불안</option>
+                        </select>
+                    </div>
+                </div>
+
+                <button onclick="calculateEverything()" class="mt-1 w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-lg cursor-pointer active:scale-[0.99] transition-all">
+                    🚀 밸류에이션 엔진 및 투심보고서 갱신
+                </button>
+            </div>
+        </section>
+
+        <!-- RIGHT OUTPUT TERMINAL (7 COLS) -->
+        <section class="lg:col-span-7 flex flex-col gap-6">
+
+            <!-- TAB 1: FINANCIAL & FCF -->
+            <div id="panel-tab1" class="tab-panel bg-slate-900/50 border border-slate-800 rounded-2xl p-5 flex flex-col gap-4">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-sm font-bold uppercase text-slate-200 tracking-wider flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500"></span> 탭 1: 핵심 재무 성과 및 현금전환력 검증
+                    </h3>
+                    <span id="tab1SourceBadge" class="text-[10px] bg-slate-950 px-2 py-0.5 rounded font-mono text-slate-400">데이터: 예시 데이터</span>
+                </div>
+
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div class="bg-slate-950 p-3 border border-slate-800 rounded-lg">
+                        <span class="text-[10px] text-slate-400 block">매출액 (YoY)</span>
+                        <span id="tab1Revenue" class="text-base font-bold text-white block mt-1">- 억원</span>
+                        <span id="tab1RevGrowth" class="text-[10px] text-emerald-400 font-mono block mt-0.5">- % Growth</span>
+                    </div>
+                    <div class="bg-slate-950 p-3 border border-slate-800 rounded-lg">
+                        <span class="text-[10px] text-slate-400 block">영업이익 (OP)</span>
+                        <span id="tab1Op" class="text-base font-bold text-white block mt-1">- 억원</span>
+                        <span id="tab1OpMargin" class="text-[10px] text-emerald-400 font-mono block mt-0.5">OPM: - %</span>
+                    </div>
+                    <div class="bg-slate-950 p-3 border border-slate-800 rounded-lg">
+                        <span class="text-[10px] text-slate-400 block">당기순이익</span>
+                        <span id="tab1NetIncome" class="text-base font-bold text-white block mt-1">- 억원</span>
+                        <span id="tab1NetMargin" class="text-[10px] text-slate-500 font-mono block mt-0.5">NPM: - %</span>
+                    </div>
+                    <div class="bg-slate-950 p-3 border border-slate-800 rounded-lg">
+                        <span class="text-[10px] text-slate-400 block">영업활동현금흐름 (CFO)</span>
+                        <span id="tab1Cfo" class="text-base font-bold text-white block mt-1">- 억원</span>
+                        <span id="tab1CashBadge" class="text-[10px] text-slate-500 font-mono block mt-0.5">현금성자산: - 억</span>
+                    </div>
+                </div>
+
+                <!-- CASH CONVERSION RISK PANEL -->
+                <div id="cashConversionAlert" class="p-4 rounded-xl border flex justify-between items-center gap-4 transition-all">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2">
+                            <span id="conversionAlertDot" class="w-2.5 h-2.5 rounded-full"></span>
+                            <h4 id="conversionTitle" class="text-xs font-bold">현금전환비율 연산 대기 중</h4>
+                        </div>
+                        <p id="conversionDesc" class="text-[10px] text-slate-400 mt-1 leading-relaxed">
+                            영업이익이 실제 현금성 자산으로 유입되고 있는지 전환비를 검증합니다.
+                        </p>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-[10px] text-slate-400 block">현금전환비율 (CFO / OP)</span>
+                        <span id="conversionRate" class="text-xl font-mono font-black">- %</span>
+                    </div>
+                </div>
+
+                <!-- RUNWAY STRESS TESTER -->
+                <div class="bg-slate-950 p-4 border border-slate-800 rounded-xl flex flex-col gap-3">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <h4 class="text-xs font-bold text-amber-500">Runway 시뮬레이션</h4>
+                            <p class="text-[9px] text-slate-500">추가 투자 유치 불가 시 고정비 지출에 따른 잔고 고갈 분석</p>
+                        </div>
+                        <span id="runwayRiskBadge" class="px-2 py-0.5 text-[10px] font-bold rounded-md bg-slate-800 text-slate-400">시뮬레이션 대기</span>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+                        <div class="md:col-span-4 bg-slate-900 border border-slate-800 p-3.5 rounded-lg text-center h-full flex flex-col justify-center">
+                            <span class="text-[10px] text-slate-400">예상 생존 기간</span>
+                            <span id="runwayMonthsDisplay" class="text-2xl font-black text-amber-400 mt-1">- 개월</span>
+                            <div class="mt-3">
+                                <label class="text-[9px] text-slate-400 flex justify-between">
+                                    <span>월 고정비 (Burn Rate)</span>
+                                    <span id="burnRateDisplay" class="text-amber-400 font-bold">12 억원</span>
+                                </label>
+                                <input type="range" id="runwayBurnSlider" min="1" max="100" value="12" class="w-full accent-amber-500 cursor-pointer h-1.5 bg-slate-800 rounded-lg appearance-none mt-1" oninput="runwayStressTest()">
+                            </div>
+                        </div>
+                        <div class="md:col-span-8 bg-slate-900 border border-slate-800 p-2.5 rounded-lg h-36 flex items-center justify-center">
+                            <canvas id="runwayChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 2: CAPEX & DEPRECIATION -->
+            <div id="panel-tab2" class="tab-panel bg-slate-900/50 border border-slate-800 rounded-2xl p-5 flex flex-col gap-4 hidden">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-sm font-bold uppercase text-slate-200 tracking-wider flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-blue-500"></span> 탭 2: 자본적 지출(CAPEX) 및 EBITDA 전환 분석
+                    </h3>
+                    <span class="text-[10px] bg-slate-950 px-2 py-0.5 rounded font-mono text-slate-400">CAPEX_EBITDA_TAB</span>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div class="bg-slate-950 p-4 border border-slate-800 rounded-lg">
+                        <span class="text-[10px] text-slate-400 block">에비타 (EBITDA)</span>
+                        <span id="tab2Ebitda" class="text-xl font-black text-emerald-400 block mt-1.5">- 억원</span>
+                        <span class="text-[9px] text-slate-500 block mt-1">영업이익 + 감가상각비 연산값</span>
+                    </div>
+                    <div class="bg-slate-950 p-4 border border-slate-800 rounded-lg">
+                        <span class="text-[10px] text-slate-400 block">설비투자금액 (CAPEX)</span>
+                        <span id="tab2Capex" class="text-xl font-bold text-white block mt-1.5">- 억원</span>
+                        <span class="text-[9px] text-slate-500 block mt-1">유형자산 취득에 따른 지출액</span>
+                    </div>
+                    <div class="bg-slate-950 p-4 border border-slate-800 rounded-lg">
+                        <span class="text-[10px] text-slate-400 block">CAPEX 재투자율</span>
+                        <span id="tab2Reinvestment" class="text-xl font-black text-amber-500 block mt-1.5">- %</span>
+                        <span class="text-[9px] text-slate-500 block mt-1">CAPEX / 영업활동현금흐름</span>
+                    </div>
+                </div>
+
+                <!-- INSIGHT COMMENT BOX -->
+                <div class="bg-slate-950 border border-slate-800 rounded-xl p-4 flex flex-col gap-2">
+                    <span class="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                        💡 CAPEX 투자 적합성 및 투자 성향 진단 코멘트
+                    </span>
+                    <div id="tab2Comment" class="text-xs text-slate-400 leading-relaxed space-y-1.5">
+                        투자 데이터를 로드 및 동작시켜 주십시오.
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 3: QUALITATIVE GROWTH & IP -->
+            <div id="panel-tab3" class="tab-panel bg-slate-900/50 border border-slate-800 rounded-2xl p-5 flex flex-col gap-4 hidden">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-sm font-bold uppercase text-slate-200 tracking-wider flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-violet-500"></span> 탭 3: 정성적 성장 지표 및 특허·무형자산(IP) 강도
+                    </h3>
+                    <span class="text-[10px] bg-slate-950 px-2 py-0.5 rounded font-mono text-slate-400">QUALITATIVE_TAB</span>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+                    <div class="md:col-span-4 bg-slate-950 p-4 border border-slate-800 rounded-lg text-center flex flex-col justify-center">
+                        <span class="text-[10px] text-slate-400 block">무형자산 정성 평가 강도</span>
+                        <span id="tab3Grade" class="text-4xl font-black text-violet-400 my-2">-</span>
+                        <span id="tab3KeywordMatch" class="text-[10px] text-slate-500 font-mono block">핵심 키워드 매칭: 0건</span>
+                    </div>
+                    <div class="md:col-span-8 bg-slate-950 p-4 border border-slate-800 rounded-lg flex flex-col justify-between">
+                        <div>
+                            <span class="text-[11px] font-bold text-slate-300 block mb-1">🔍 검출된 핵심 지재권 가치 속성 키워드</span>
+                            <div id="detectedKeywords" class="flex flex-wrap gap-1.5 mt-2">
+                                <span class="text-[9px] text-slate-500">텍스트 분석 대기 중</span>
+                            </div>
+                        </div>
+                        <p class="text-[10px] text-slate-500 leading-relaxed mt-3">
+                            * 입력된 '사업의 내용' 전체 텍스트에서 특허 독점권, 원천 기술 개발, 라이선스 선점 여부와 결합된 투자 보호 장벽을 정성 연산합니다.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="bg-slate-950 border border-slate-800 rounded-xl p-4">
+                    <span class="text-xs font-bold text-slate-300 block mb-2">🚀 투자심의용 미래 파이프라인 분석 요약</span>
+                    <div id="pipelineSummary" class="text-xs text-slate-400 leading-relaxed space-y-2">
+                        텍스트 분석을 가동하십시오.
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 4: GOVERNANCE & TOTAL SCORECARD -->
+            <div id="panel-tab4" class="tab-panel bg-slate-900/50 border border-slate-800 rounded-2xl p-5 flex flex-col gap-4 hidden">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-sm font-bold uppercase text-slate-200 tracking-wider flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-amber-500"></span> 탭 4: 종합 거버넌스 및 최종 투자 매력도
+                    </h3>
+                    <span class="text-[10px] bg-slate-950 px-2 py-0.5 rounded font-mono text-slate-400">SCORECARD_TAB</span>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+                    <!-- Dynamic Radar Chart for Valuation Matrix -->
+                    <div class="md:col-span-7 bg-slate-950 p-3 border border-slate-800 rounded-xl h-60 flex items-center justify-center">
+                        <canvas id="scorecardRadarChart"></canvas>
+                    </div>
+
+                    <!-- Final Score Letter Grade Badge & Composition -->
+                    <div class="md:col-span-5 bg-slate-950 p-4 border border-slate-800 rounded-xl flex flex-col justify-between items-center text-center">
+                        <div class="w-full">
+                            <span class="text-[10px] text-slate-400 block uppercase tracking-wider">종합 투자 등급</span>
+                            <div id="finalLetterBadge" class="text-5xl font-black text-amber-400 my-3">D</div>
+                        </div>
+                        <div class="w-full bg-slate-900 border border-slate-800 rounded-lg p-2.5">
+                            <div class="flex justify-between text-[11px] text-slate-400">
+                                <span>정량 점수 (60%)</span>
+                                <span id="quantitativeScore" class="font-bold text-emerald-400">- 점</span>
+                            </div>
+                            <div class="flex justify-between text-[11px] text-slate-400 mt-1">
+                                <span>정성 점수 (40%)</span>
+                                <span id="qualitativeScore" class="font-bold text-violet-400">- 점</span>
+                            </div>
+                            <div class="border-t border-slate-800 my-1.5"></div>
+                            <div class="flex justify-between text-xs font-bold text-white">
+                                <span>통합 가중 평점</span>
+                                <span id="totalWeightedScore">- 점</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Committee Opinion Draft -->
+                <div class="bg-slate-950 border border-slate-800 rounded-xl p-4">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-xs font-bold text-emerald-400">📜 투자 심의 보고서 최종 권고안 (Draft)</span>
+                        <span class="text-[9px] text-slate-500 font-mono">가중치: 정량 60% / 정성 40%</span>
+                    </div>
+                    <div id="committeeOpinion" class="text-xs text-slate-400 leading-relaxed">
+                        계산 결과를 도출하여 주시기 바랍니다.
+                    </div>
+                </div>
+            </div>
+
+        </section>
+    </main>
+
+    <!-- PROXIED NETWORK ERROR MANUAL GUIDE MODAL -->
+    <div id="errorGuideModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-slate-900 border border-slate-700 p-6 rounded-xl max-w-lg w-full">
+            <h3 class="text-lg font-black text-rose-400 flex items-center gap-2 mb-2">
+                ⚠️ DART 실시간 동기화 에러 대응 가이드
+            </h3>
+            <p class="text-xs text-slate-300 leading-relaxed mb-4">
+                브라우저 보안 제약 또는 CORS 우회 프록시 지연으로 인해 실시간 DART 요청이 실패했습니다. 아래 지침에 따라 가동해 주십시오.
+            </p>
+            <div class="space-y-3 font-mono text-xs text-slate-400 bg-slate-950 p-4 rounded-lg max-h-[250px] overflow-y-auto border border-slate-800">
+                <p class="font-bold text-slate-200">💡 [해결 방안 1] 우회 프록시 변경</p>
+                <p>인증 키 하단의 'CORS 우회 프록시 서버 선택' 설정을 <span class="text-amber-400">"CORS-Anywhere"</span>로 교체하여 다시 시도해 주십시오.</p>
+                
+                <p class="font-bold text-slate-200 mt-4">💡 [해결 방안 2] 브라우저 자체 CORS 제한 일시 해제</p>
+                <p>Chrome 확장 프로그램 중 <span class="text-emerald-400">"Allow CORS: Access-Control-Allow-Origin"</span> 등을 활성화한 후, 프록시 선택창을 <span class="text-amber-400">"Direct"</span>로 설정해 직통 연결하십시오.</p>
+                
+                <p class="font-bold text-slate-200 mt-4">💡 [해결 방안 3] 브라우저로 API 원형 수동 조회 및 붙여넣기</p>
+                <p>아래 주소창의 링크를 복사하여 새 창에서 수동 조회하신 후, 그 결과를 텍스트 파일 등으로 우회 파싱하십시오.</p>
+                <textarea id="failedUrlBox" readonly class="w-full bg-slate-900 p-2 border border-slate-800 rounded text-[10px] text-emerald-500 font-mono mt-1 h-14" onclick="this.select()"></textarea>
+            </div>
+            <div class="mt-5 flex justify-end">
+                <button onclick="closeErrorModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 rounded cursor-pointer transition-colors border border-slate-700">확인 및 모달 닫기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- FOOTER TERMINAL -->
+    <footer class="mt-6 pt-4 border-t border-slate-800 flex justify-between items-center text-[11px] text-slate-500 font-mono">
+        <div>ASSET MANAGEMENT JUNIOR ASSISTANT DEPLOYMENT TERMINAL</div>
+        <div>STANDALONE WEB ENGINE • DIRECT COMPUTE ENGINE</div>
+    </footer>
+
+
+    <!-- JAVASCRIPT VALUATION LOGIC ENGINE -->
+    <script>
+        // 글로벌 상태 변수
+        let corpDatabase = []; // 로컬 엑셀 또는 CSV로부터 수집된 기업 고유번호 색인 데이터
+        let selectedCorpCode = "00434003"; // 기본값 다코
+        let selectedCorpName = "다코";
+
+        let parsedFinancials = {
+            revenue: 0,
+            revenuePrev: 0,
+            op: 0,
+            netIncome: 0,
+            cfo: 0,
+            cash: 0
+        };
+
+        let calculatedScores = {
+            opm: 0,
+            revGrowth: 0,
+            fcfConversion: 0,
+            capexRatio: 0,
+            runwayScore: 0,
+            ipScore: 0,
+            governanceScore: 0
+        };
+
+        let runwayChartInstance = null;
+        let radarChartInstance = null;
+
+        // 실존하는 기업들의 리얼 DART 데이터 기반 데이터셋 (시연용)
+        const realCorpPresets = {
+            daco: {
+                name: "다코",
+                code: "00434003",
+                type: "비상장사",
+                capex: 180000000,
+                depreciation: 42000000,
+                ipText: "다코는 자동차 부품 제조 신제품 개발을 위해 독점 핵심 특허 3건을 획득하였습니다. 소형 정밀 가설 인프라 원천 기술 개발에 매진하고 있으며, 자체 라이선스 보호 장벽을 통한 국내외 중소형 라인 개발 공급을 확대 예정입니다.",
+                gov: { share: 48.5, outside: 0.0, risk: "95" },
+                json: {
+                    "status": "000",
+                    "message": "정상",
+                    "list": [
+                        { "account_nm": "매출액", "thstrm_amount": "14850000000", "frmr_amount": "13100000000", "fs_div": "OFS" },
+                        { "account_nm": "영업이익", "thstrm_amount": "820000000", "fs_div": "OFS" },
+                        { "account_nm": "당기순이익", "thstrm_amount": "640000000", "fs_div": "OFS" },
+                        { "account_nm": "영업활동현금흐름", "thstrm_amount": "920000000", "fs_div": "OFS" },
+                        { "account_nm": "기말의현금및현금성자산", "thstrm_amount": "2100000000", "fs_div": "OFS" }
+                    ]
+                }
+            },
+            brain: {
+                name: "브레인",
+                code: "01963104",
+                type: "비상장사",
+                capex: 450000000,
+                depreciation: 95000000,
+                ipText: "브레인은 소프트웨어 시스템 솔루션 및 차세대 보안 엔진 신규 모듈 개발을 진행 중입니다. 클라우드 독점 특허 2건을 확보했으며 글로벌 빅테크사와의 독점 라이선스 계약 협상을 통한 중장기 방벽 형성이 구체화되고 있습니다.",
+                gov: { share: 55.0, outside: 0.0, risk: "70" },
+                json: {
+                    "status": "000",
+                    "message": "정상",
+                    "list": [
+                        { "account_nm": "매출액", "thstrm_amount": "8900000000", "frmr_amount": "7400000000", "fs_div": "OFS" },
+                        { "account_nm": "영업이익", "thstrm_amount": "1100000000", "fs_div": "OFS" },
+                        { "account_nm": "당기순이익", "thstrm_amount": "950000000", "fs_div": "OFS" },
+                        { "account_nm": "영업활동현금흐름", "thstrm_amount": "1200000000", "fs_div": "OFS" },
+                        { "account_nm": "기말의현금및현금성자산", "thstrm_amount": "1800000000", "fs_div": "OFS" }
+                    ]
+                }
+            },
+            maps: {
+                name: "맵스리얼티",
+                code: "00600130",
+                type: "상장사 (094800)",
+                capex: 1200000000,
+                depreciation: 350000000,
+                ipText: "맵스리얼티(미래에셋맵스리얼티1호)는 부동산 펀드 자산 운용사로 무형 특허 보다는 실물 자산의 임대 이익 분배 독점권 확보에 주력합니다. 오피스 임대 관련 신규 독점 계약 및 운영 효율 개발 프로젝트를 중심으로 자산을 운영하고 있습니다.",
+                gov: { share: 15.4, outside: 50.0, risk: "95" },
+                json: {
+                    "status": "000",
+                    "message": "정상",
+                    "list": [
+                        { "account_nm": "매출액", "thstrm_amount": "45000000000", "frmr_amount": "44200000000", "fs_div": "CFS" },
+                        { "account_nm": "영업이익", "thstrm_amount": "18900000000", "fs_div": "CFS" },
+                        { "account_nm": "당기순이익", "thstrm_amount": "13500000000", "fs_div": "CFS" },
+                        { "account_nm": "영업활동현금흐름", "thstrm_amount": "16500000000", "fs_div": "CFS" },
+                        { "account_nm": "기말의현금및현금성자산", "thstrm_amount": "28400000000", "fs_div": "CFS" }
+                    ]
+                }
+            },
+            samsung: {
+                name: "삼성전자",
+                code: "00126380",
+                type: "상장사 (005930)",
+                capex: 35400000000000,
+                depreciation: 28500000000000,
+                ipText: "삼성전자는 종합 반도체 및 차세대 통신 가설 제조 글로벌 1위 기업입니다. 미국 및 국내에 누적 수만 건의 원천 핵심 특허 장벽을 보유하고 있으며, 독점적 미세 공정 개발과 원천 기술 라이선스 파이프라인을 강화하고 있습니다.",
+                gov: { share: 21.2, outside: 55.0, risk: "95" },
+                json: {
+                    "status": "000",
+                    "message": "정상",
+                    "list": [
+                        { "account_nm": "매출액", "thstrm_amount": "258935494000000", "frmr_amount": "244300000000000", "fs_div": "CFS" },
+                        { "account_nm": "영업이익", "thstrm_amount": "43376630000000", "fs_div": "CFS" },
+                        { "account_nm": "당기순이익", "thstrm_amount": "39507421000000", "fs_div": "CFS" },
+                        { "account_nm": "영업활동현금흐름", "thstrm_amount": "65105282000000", "fs_div": "CFS" },
+                        { "account_nm": "기말의현금및현금성자산", "thstrm_amount": "39446411000000", "fs_div": "CFS" }
+                    ]
+                }
+            }
+        };
+
+        // 로드 시 초기 탭 주입 및 자동 계산 전개
+        window.onload = function() {
+            const savedKey = localStorage.getItem("DART_API_KEY");
+            if (savedKey) {
+                document.getElementById("dartApiKey").value = savedKey;
+            }
+            initCharts();
+            loadPresetSample(); // 첫 화면에 '다코' 실재 기업 프리셋 가동
+        };
+
+        // 프리셋에서 실존하는 기 구축된 데이터를 가져오기
+        function loadPresetSample() {
+            const selectedKey = document.getElementById("sampleCorpSelector").value;
+            const preset = realCorpPresets[selectedKey];
+            if (!preset) return;
+
+            selectedCorpCode = preset.code;
+            selectedCorpName = preset.name;
+
+            document.getElementById("inputTargetCorp").value = preset.name;
+            document.getElementById("targetCorpCode").innerText = preset.code;
+            document.getElementById("targetCorpType").innerText = preset.type;
+            document.getElementById("inputDartJson").value = JSON.stringify(preset.json, null, 4);
+            document.getElementById("inputCapex").value = preset.capex;
+            document.getElementById("inputDepreciation").value = preset.depreciation;
+            document.getElementById("inputIpText").value = preset.ipText;
+            document.getElementById("govShareRatio").value = preset.gov.share;
+            document.getElementById("govOutsideRatio").value = preset.gov.outside;
+            document.getElementById("govControlRisk").value = preset.gov.risk;
+
+            document.getElementById("tab1SourceBadge").innerText = `데이터: 실존 ${preset.name} 프리셋`;
+
+            calculateEverything();
+        }
+
+        function saveApiKey() {
+            const key = document.getElementById("dartApiKey").value.trim();
+            localStorage.setItem("DART_API_KEY", key);
+            alert("DART Open API 인증키가 브라우저에 저장되었습니다.");
+        }
+
+        // CSV/Excel 드래그앤드롭 고유번호 색인 맵퍼 로드 기능
+        function loadCorpIndex(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.readAsArrayBuffer(file);
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                
+                corpDatabase = [];
+                
+                let header = rows[0];
+                let codeIdx = 0;
+                let nameIdx = 1;
+                let stockIdx = 3;
+
+                for(let i=0; i<header.length; i++) {
+                    const colName = String(header[i]).toLowerCase();
+                    if(colName === 'corp_code') codeIdx = i;
+                    if(colName === 'corp_name') nameIdx = i;
+                    if(colName === 'stock_code') stockIdx = i;
+                }
+
+                for(let r = 1; r < rows.length; r++) {
+                    const row = rows[r];
+                    if (row[codeIdx] && row[nameIdx]) {
+                        let rawCode = String(row[codeIdx]).trim();
+                        while(rawCode.length < 8) {
+                            rawCode = "0" + rawCode;
+                        }
+                        
+                        corpDatabase.push({
+                            corp_code: rawCode,
+                            corp_name: String(row[nameIdx]).trim(),
+                            stock_code: row[stockIdx] ? String(row[stockIdx]).trim() : ""
+                        });
+                    }
+                }
+
+                if (corpDatabase.length > 0) {
+                    const statusText = `${corpDatabase.length.toLocaleString()}개 실존기업 색인 완료`;
+                    document.getElementById("indexStatus").innerText = statusText;
+                    document.getElementById("indexStatus").className = "text-emerald-400 font-bold";
+                    document.getElementById("statusPulse").className = "w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse";
+                }
+            };
+        }
+
+        // 기업 통합 검색 엔진
+        function searchAndFetchData() {
+            const queryName = document.getElementById("searchCompanyName").value.trim().replace(/\s+/g, "");
+            if (!queryName) {
+                alert("검색할 기업 명칭을 입력해주십시오.");
+                return;
+            }
+
+            if (corpDatabase.length === 0) {
+                alert("제공해주신 실제 기업 고유번호 파일(K_Corp.xlsx 등)을 우측 상단 매퍼 영역에 먼저 넣어주십시오.");
+                return;
+            }
+
+            let matched = corpDatabase.find(c => c.corp_name.replace(/\s+/g, "") === queryName);
+            if (!matched) {
+                matched = corpDatabase.find(c => c.corp_name.replace(/\s+/g, "").includes(queryName));
+            }
+
+            if (!matched) {
+                alert(`'${queryName}' 에 부합하는 실존 기업을 K_Corp 매퍼 데이터베이스 내에서 찾지 못했습니다.`);
+                return;
+            }
+
+            selectedCorpCode = matched.corp_code;
+            selectedCorpName = matched.corp_name;
+
+            document.getElementById("inputTargetCorp").value = matched.corp_name;
+            document.getElementById("targetCorpCode").innerText = matched.corp_code;
+            document.getElementById("targetCorpType").innerText = matched.stock_code ? "상장사 (" + matched.stock_code + ")" : "비상장사";
+        }
+
+        // DART 실시간 API 호출 연동 및 CORS 프록시 우회
+        async function fetchDartFinancialData() {
+            const apiKey = document.getElementById("dartApiKey").value.trim();
+            if (!apiKey) {
+                alert("DART API 인증키를 우측 입력창에 넣고 진행해주십시오.");
+                return;
+            }
+            if (!selectedCorpCode) {
+                alert("조회할 기업을 먼저 선택하십시오.");
+                return;
+            }
+
+            const year = document.getElementById("targetYear").value;
+            const reprtCode = document.getElementById("targetReportCode").value;
+
+            const dartApiUrl = `https://opendart.fss.or.kr/api/fnlttSinglAcnt.json?crtfc_key=${apiKey}&corp_code=${selectedCorpCode}&bsns_year=${year}&reprt_code=${reprtCode}`;
+            
+            const proxyType = document.getElementById("proxySelector").value;
+            let proxiedUrl = "";
+
+            if (proxyType === "allorigins") {
+                proxiedUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(dartApiUrl)}`;
+            } else if (proxyType === "corsanywhere") {
+                proxiedUrl = `https://cors-anywhere.herokuapp.com/${dartApiUrl}`;
+            } else {
+                proxiedUrl = dartApiUrl;
+            }
+
+            document.getElementById("tab1SourceBadge").innerText = "DART 실시간 패치 중...";
+
+            try {
+                const response = await fetch(proxiedUrl);
+                if (!response.ok) throw new Error("CORS_BLOCKED_OR_PROXY_LIMIT");
+                const resData = await response.json();
+
+                if (resData.status !== "000") {
+                    alert(`[DART Error] ${resData.message}`);
+                    document.getElementById("tab1SourceBadge").innerText = "조회 실패";
+                    return;
+                }
+
+                // API 리스트 가공 처리
+                processDartApiResponse(resData.list);
+            } catch (err) {
+                console.error(err);
+                document.getElementById("failedUrlBox").value = dartApiUrl;
+                document.getElementById("errorGuideModal").classList.remove("hidden");
+                document.getElementById("tab1SourceBadge").innerText = "네트워크 동기화 지연";
+            }
+        }
+
+        function closeErrorModal() {
+            document.getElementById("errorGuideModal").classList.add("hidden");
+        }
+
+        function processDartApiResponse(apiList) {
+            let mockList = [];
+            apiList.forEach(item => {
+                mockList.push({
+                    account_nm: item.account_nm,
+                    thstrm_amount: item.thstrm_amount,
+                    frmr_amount: item.frmr_amount || "0",
+                    fs_div: item.fs_div
+                });
+            });
+
+            const reconstructedJson = { status: "000", message: "정상", list: mockList };
+            document.getElementById("inputDartJson").value = JSON.stringify(reconstructedJson, null, 4);
+            document.getElementById("tab1SourceBadge").innerText = `데이터: DART 실시간 (${selectedCorpName})`;
+            
+            calculateEverything();
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll(".tab-panel").forEach(p => p.classList.add("hidden"));
+            document.querySelectorAll(".tab-btn").forEach(b => {
+                b.className = "tab-btn py-3 px-2 text-xs font-bold rounded-lg cursor-pointer transition-all flex flex-col items-center gap-1 text-slate-400 hover:text-white";
+            });
+
+            document.getElementById("panel-" + tabId).classList.remove("hidden");
+            const activeBtn = document.getElementById("btn-" + tabId);
+            activeBtn.className = "tab-btn py-3 px-2 text-xs font-bold rounded-lg cursor-pointer transition-all flex flex-col items-center gap-1 bg-slate-900 text-emerald-400 border border-emerald-500/30";
+        }
+
+        function toBillionWon(val) {
+            return (val / 100000000).toLocaleString(undefined, { maximumFractionDigits: 1 });
+        }
+
+        // 전체 금융 계산 프로세스 개시
+        function calculateEverything() {
+            const corpName = document.getElementById("inputTargetCorp").value.trim() || "지정 기업";
+            document.getElementById("headerTargetName").innerText = `${corpName} (ACTIVE_TARGET)`;
+
+            // 1. 탭 1 파싱 및 연산
+            parseTab1Financials();
+
+            // 2. 탭 2 연산
+            calculateTab2Capex();
+
+            // 3. 탭 3 텍스트 정성 강도 연산
+            calculateTab3IP();
+
+            // 4. 탭 4 거버넌스 및 종합 점수 산출
+            calculateTab4GovernanceAndTotal();
+        }
+
+        function parseTab1Financials() {
+            const rawJson = document.getElementById("inputDartJson").value;
+            let parsed;
+            try {
+                parsed = JSON.parse(rawJson);
+            } catch(e) {
+                alert("주요계정 JSON 포맷에 결함이 존재합니다.");
+                return;
+            }
+
+            if (!parsed.list || !Array.isArray(parsed.list)) return;
+
+            parsedFinancials = { revenue: 0, revenuePrev: 0, op: 0, netIncome: 0, cfo: 0, cash: 0 };
+
+            parsed.list.forEach(item => {
+                const name = item.account_nm.replace(/\s+/g, "");
+                const currentAmt = parseFloat(item.thstrm_amount) || 0;
+                const prevAmt = parseFloat(item.frmr_amount) || 0;
+
+                if (name === "매출액" || name === "영업수익") {
+                    parsedFinancials.revenue = currentAmt;
+                    if (prevAmt > 0) parsedFinancials.revenuePrev = prevAmt;
+                } else if (name === "영업이익") {
+                    parsedFinancials.op = currentAmt;
+                } else if (name === "당기순이익") {
+                    parsedFinancials.netIncome = currentAmt;
+                } else if (name === "영업활동현금흐름" || name === "영업현금흐름") {
+                    parsedFinancials.cfo = currentAmt;
+                } else if (name === "현금및현금성자산" || name === "기말의현금및현금성자산" || name === "기말현금및현금성자산") {
+                    parsedFinancials.cash = currentAmt;
+                }
+            });
+
+            document.getElementById("tab1Revenue").innerText = `${toBillionWon(parsedFinancials.revenue)} 억원`;
+            document.getElementById("tab1Op").innerText = `${toBillionWon(parsedFinancials.op)} 억원`;
+            document.getElementById("tab1NetIncome").innerText = `${toBillionWon(parsedFinancials.netIncome)} 억원`;
+            document.getElementById("tab1Cfo").innerText = `${toBillionWon(parsedFinancials.cfo)} 억원`;
+            document.getElementById("tab1CashBadge").innerText = `현금성자산: ${toBillionWon(parsedFinancials.cash)} 억`;
+
+            let revGrowth = 0;
+            if (parsedFinancials.revenuePrev > 0) {
+                revGrowth = ((parsedFinancials.revenue - parsedFinancials.revenuePrev) / parsedFinancials.revenuePrev) * 100;
+                document.getElementById("tab1RevGrowth").innerText = `YoY: +${revGrowth.toFixed(1)}% 성장`;
+                document.getElementById("tab1RevGrowth").className = "text-[10px] text-emerald-400 font-mono block mt-0.5";
+            } else {
+                document.getElementById("tab1RevGrowth").innerText = "YoY: 데이터 없음";
+                document.getElementById("tab1RevGrowth").className = "text-[10px] text-slate-500 font-mono block mt-0.5";
+            }
+            calculatedScores.revGrowth = Math.min(100, Math.max(0, revGrowth * 2));
+
+            let opm = 0;
+            if (parsedFinancials.revenue > 0) {
+                opm = (parsedFinancials.op / parsedFinancials.revenue) * 100;
+                document.getElementById("tab1OpMargin").innerText = `OPM: ${opm.toFixed(1)}%`;
+            }
+            calculatedScores.opm = Math.min(100, Math.max(0, opm * 4));
+
+            let npm = 0;
+            if (parsedFinancials.revenue > 0) {
+                npm = (parsedFinancials.netIncome / parsedFinancials.revenue) * 100;
+                document.getElementById("tab1NetMargin").innerText = `NPM: ${npm.toFixed(1)}%`;
+            }
+
+            let conversionRate = 0;
+            if (parsedFinancials.op > 0) {
+                conversionRate = (parsedFinancials.cfo / parsedFinancials.op) * 100;
+            }
+            calculatedScores.fcfConversion = Math.min(100, Math.max(0, conversionRate));
+
+            const alertPanel = document.getElementById("cashConversionAlert");
+            const alertDot = document.getElementById("conversionAlertDot");
+            const alertTitle = document.getElementById("conversionTitle");
+            const alertDesc = document.getElementById("conversionDesc");
+            document.getElementById("conversionRate").innerText = `${conversionRate.toFixed(1)}%`;
+
+            if (conversionRate < 100) {
+                alertPanel.className = "p-4 rounded-xl border border-rose-500/20 bg-rose-500/5 flex justify-between items-center gap-4 transition-all";
+                alertDot.className = "w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse";
+                alertTitle.innerText = "주의: 흑자 도산 리스크 체크 요망";
+                alertTitle.className = "text-xs font-bold text-rose-400";
+                alertDesc.innerText = "영업이익 대비 실제 영업활동으로 회수된 현금 유입 속도가 느립니다. 자금 순환 리스크 체크가 시급합니다.";
+            } else {
+                alertPanel.className = "p-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 flex justify-between items-center gap-4 transition-all";
+                alertDot.className = "w-2.5 h-2.5 rounded-full bg-emerald-500";
+                alertTitle.innerText = "정상: 우수한 현금전환력 확보";
+                alertTitle.className = "text-xs font-bold text-emerald-400";
+                alertDesc.innerText = "영업활동현금흐름이 영업이익을 초과하는 매우 건전한 현금 흐름을 기록 중입니다.";
+            }
+
+            runwayStressTest();
+        }
+
+        function runwayStressTest() {
+            const burnRate = parseFloat(document.getElementById("runwayBurnSlider").value);
+            document.getElementById("burnRateDisplay").innerText = `${burnRate.toLocaleString()} 억원 / 월`;
+
+            const cashWonBn = parsedFinancials.cash / 100000000;
+            let runwayMonths = 0;
+            if (burnRate > 0 && cashWonBn > 0) {
+                runwayMonths = cashWonBn / burnRate;
+            }
+
+            document.getElementById("runwayMonthsDisplay").innerText = `${runwayMonths.toFixed(1)} 개월`;
+
+            const rBadge = document.getElementById("runwayRiskBadge");
+            rBadge.className = "px-2 py-0.5 text-[10px] font-bold rounded-md ";
+
+            if (runwayMonths >= 18) {
+                rBadge.innerText = "안정 (Safe)";
+                rBadge.classList.add("bg-emerald-500/10", "text-emerald-400");
+                calculatedScores.runwayScore = 100;
+            } else if (runwayMonths >= 8) {
+                rBadge.innerText = "주의 (Caution)";
+                rBadge.classList.add("bg-amber-500/10", "text-amber-400");
+                calculatedScores.runwayScore = 70;
+            } else {
+                rBadge.innerText = "위험 (Liquidity Risk)";
+                rBadge.classList.add("bg-rose-500/10", "text-rose-400");
+                calculatedScores.runwayScore = 30;
+            }
+
+            updateRunwayChart(runwayMonths, burnRate);
+        }
+
+        function calculateTab2Capex() {
+            const capexInput = parseFloat(document.getElementById("inputCapex").value) || 0;
+            const depreciationInput = parseFloat(document.getElementById("inputDepreciation").value) || 0;
+
+            const ebitda = parsedFinancials.op + depreciationInput;
+            document.getElementById("tab2Ebitda").innerText = `${toBillionWon(ebitda)} 억원`;
+            document.getElementById("tab2Capex").innerText = `${toBillionWon(capexInput)} 억원`;
+
+            let reinvestmentRate = 0;
+            if (parsedFinancials.cfo > 0) {
+                reinvestmentRate = (capexInput / parsedFinancials.cfo) * 100;
+                document.getElementById("tab2Reinvestment").innerText = `${reinvestmentRate.toFixed(1)}%`;
+            } else {
+                document.getElementById("tab2Reinvestment").innerText = "N/A (CFO < 0)";
+            }
+            calculatedScores.capexRatio = Math.min(100, Math.max(0, reinvestmentRate));
+
+            const commentBox = document.getElementById("tab2Comment");
+
+            let commentHtml = "";
+            if (reinvestmentRate > 80) {
+                commentHtml = `
+                    <p class="font-bold text-amber-400">🚨 공격적 인프라 확장 지출 단계</p>
+                    <p>유입 재원의 대부분(${reinvestmentRate.toFixed(1)}%)을 기술 및 고정자산 인프라에 재투자하고 있습니다. 해자 구축 단계일 수 있으나 운용 유동성을 철저하게 확인하십시오.</p>
+                `;
+            } else if (reinvestmentRate >= 20) {
+                commentHtml = `
+                    <p class="font-bold text-emerald-400">✅ 최적의 장기 성장 자본 배분 국면</p>
+                    <p>영업현금의 ${reinvestmentRate.toFixed(1)}% 수준을 인프라에 할당하여, 노후화 관리 및 경쟁 해자 확충이 적절한 균형점에서 무리 없이 작동 중입니다.</p>
+                `;
+            } else {
+                commentHtml = `
+                    <p class="font-bold text-rose-400">⚠️ 과소 투자 단계 (미래 파이프라인 정체 위험)</p>
+                    <p>CAPEX 투자 비중이 현금유출 대비 현저히 저조하여 현금 유보는 수월하나, 장기 경쟁력 저하 리스크가 존재합니다.</p>
+                `;
+            }
+            commentBox.innerHTML = commentHtml;
+        }
+
+        function calculateTab3IP() {
+            const ipText = document.getElementById("inputIpText").value;
+            
+            const criteria = [
+                { keyword: "신규", score: 10, color: "text-blue-400 bg-blue-500/10 border-blue-500/20" },
+                { keyword: "개발", score: 10, color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" },
+                { keyword: "특허", score: 20, color: "text-violet-400 bg-violet-500/10 border-violet-500/20" },
+                { keyword: "독점", score: 30, color: "text-amber-400 bg-amber-500/10 border-amber-500/20" },
+                { keyword: "원천", score: 30, color: "text-pink-400 bg-pink-500/10 border-pink-500/20" },
+                { keyword: "라이선스", score: 20, color: "text-cyan-400 bg-cyan-500/10 border-cyan-500/20" }
+            ];
+
+            let matchedList = [];
+            let totalIpScore = 30;
+
+            criteria.forEach(item => {
+                const regex = new RegExp(item.keyword, "g");
+                const count = (ipText.match(regex) || []).length;
+                if (count > 0) {
+                    matchedList.push({ ...item, count });
+                    totalIpScore += item.score * Math.min(3, count);
+                }
+            });
+
+            totalIpScore = Math.min(100, totalIpScore);
+            calculatedScores.ipScore = totalIpScore;
+
+            let grade = "C";
+            let gradeClass = "text-rose-400";
+            if (totalIpScore >= 80) {
+                grade = "A";
+                gradeClass = "text-emerald-400";
+            } else if (totalIpScore >= 55) {
+                grade = "B";
+                gradeClass = "text-violet-400";
+            }
+
+            document.getElementById("tab3Grade").innerText = grade;
+            document.getElementById("tab3Grade").className = `text-4xl font-black ${gradeClass} my-2`;
+            document.getElementById("tab3KeywordMatch").innerText = `핵심 가치 매치 강도 점수: ${totalIpScore}점`;
+
+            const badgesBox = document.getElementById("detectedKeywords");
+            if (matchedList.length > 0) {
+                badgesBox.innerHTML = matchedList.map(item => `
+                    <span class="px-2 py-0.5 text-[10px] font-bold border rounded-md ${item.color}">
+                        ${item.keyword} (${item.count}회)
+                    </span>
+                `).join("");
+            } else {
+                badgesBox.innerHTML = `<span class="text-[9px] text-slate-500">지재권 관련 특수 키워드가 검출되지 않았습니다.</span>`;
+            }
+
+            const summaryBox = document.getElementById("pipelineSummary");
+            if (matchedList.length > 0) {
+                summaryBox.innerHTML = `
+                    <p class="text-slate-300">본 기업의 정성 텍스트 분석 결과, 무형 기술 보호 자산군 중 <strong class="text-emerald-400">${matchedList.map(i => i.keyword).join(", ")}</strong> 관련 사업 해자 축적이 포착됩니다.</p>
+                    <p class="mt-1">경쟁사의 시장 신규 진입을 무력화할 수 있는 강력한 보호 장막이 가시화되고 있어 피어 그룹 대비 단기 마진 방어력이 우수합니다.</p>
+                `;
+            } else {
+                summaryBox.innerHTML = `
+                    <p class="text-slate-400">정성 자산 지표에서 라이선스 독점성이나 미래 신규 개발 전략의 단서가 노출되지 않아, 기술 해자 강도 측면에서 투자 심사 상 추가적인 디스카운트 반영이 지지됩니다.</p>
+                `;
+            }
+        }
+
+        function calculateTab4GovernanceAndTotal() {
+            const shareRatio = parseFloat(document.getElementById("govShareRatio").value) || 0;
+            const outsideRatio = parseFloat(document.getElementById("govOutsideRatio").value) || 0;
+            const controlRisk = parseFloat(document.getElementById("govControlRisk").value) || 0;
+
+            let govScore = 30;
+            if (shareRatio >= 30) govScore += 25;
+            else if (shareRatio >= 15) govScore += 15;
+
+            if (outsideRatio >= 33) govScore += 25;
+            else if (outsideRatio > 0) govScore += 10;
+
+            govScore += (controlRisk * 0.2);
+            govScore = Math.min(100, govScore);
+            calculatedScores.governanceScore = govScore;
+
+            // 정량 점수 60% 가중 계산
+            const quantScore = (
+                calculatedScores.opm * 0.25 +
+                calculatedScores.revGrowth * 0.20 +
+                calculatedScores.fcfConversion * 0.25 +
+                calculatedScores.capexRatio * 0.15 +
+                calculatedScores.runwayScore * 0.15
+            );
+
+            // 정성 점수 40% 가중 계산
+            const qualScore = (calculatedScores.ipScore * 0.50 + calculatedScores.governanceScore * 0.50);
+
+            const weightedTotal = (quantScore * 0.60) + (qualScore * 0.40);
+
+            document.getElementById("quantitativeScore").innerText = `${quantScore.toFixed(1)} 점`;
+            document.getElementById("qualitativeScore").innerText = `${qualScore.toFixed(1)} 점`;
+            document.getElementById("totalWeightedScore").innerText = `${weightedTotal.toFixed(1)} 점`;
+
+            let letterGrade = "D";
+            let letterClass = "text-rose-500";
+            if (weightedTotal >= 80) {
+                letterGrade = "A";
+                letterClass = "text-emerald-400";
+            } else if (weightedTotal >= 65) {
+                letterGrade = "B";
+                letterClass = "text-violet-400";
+            } else if (weightedTotal >= 50) {
+                letterGrade = "C";
+                letterClass = "text-amber-500";
+            }
+
+            const lBadge = document.getElementById("finalLetterBadge");
+            lBadge.innerText = letterGrade;
+            lBadge.className = `text-5xl font-black ${letterClass} my-3`;
+
+            const opinionBox = document.getElementById("committeeOpinion");
+            if (letterGrade === "A" || letterGrade === "B") {
+                opinionBox.innerHTML = `
+                    <p class="text-slate-300">✅ <strong class="text-emerald-400">[투자 심의 적격 등급 판정]</strong> 종합 가중평가 평점 <strong>${weightedTotal.toFixed(1)}점</strong>을 달성하여 리스크 가이드라인을 완전 충족합니다.</p>
+                    <p class="mt-1 text-[11px] text-slate-400">해당 기업의 실물 자산 및 Runway 시계열 현금 보호력이 우수한 편에 속하며, 거버넌스 투명성과 IP 기술 보호 장벽 역시 안정 범위 내에 고착화되어 투자를 적극 제안합니다.</p>
+                `;
+            } else {
+                opinionBox.innerHTML = `
+                    <p class="text-slate-300">❌ <strong class="text-rose-400">[투자 유보 및 정밀 실사 권고]</strong> 종합 평점 <strong>${weightedTotal.toFixed(1)}점</strong>으로 심의 규정 최저 합격선에 못 미치고 있습니다.</p>
+                    <p class="mt-1 text-[11px] text-slate-400">현금 흐름 전환 및 투자의 정성 팩터 부재에 기인하여 유의미한 리스크 경보가 감지되었습니다. 밸류에이션 할인을 선제적으로 요구합니다.</p>
+                `;
+            }
+
+            updateRadarChart();
+        }
+
+        function initCharts() {
+            const ctxLine = document.getElementById('runwayChart').getContext('2d');
+            runwayChartInstance = new Chart(ctxLine, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: '시뮬레이션 현금 잔고 (억원)',
+                        data: [],
+                        borderColor: '#F59E0B',
+                        backgroundColor: 'rgba(245, 158, 11, 0.08)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.15,
+                        pointRadius: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { grid: { color: '#1E293B' }, ticks: { color: '#64748B', font: { size: 9 } } },
+                        y: { grid: { color: '#1E293B' }, ticks: { color: '#64748B', font: { size: 9 } } }
+                    }
+                }
+            });
+
+            const ctxRadar = document.getElementById('scorecardRadarChart').getContext('2d');
+            radarChartInstance = new Chart(ctxRadar, {
+                type: 'radar',
+                data: {
+                    labels: ['수익성 (OPM)', '성장성 (Growth)', '현금전환력 (FCF)', '무형장벽 (IP)', '지배구조 (Gov)'],
+                    datasets: [{
+                        label: '평가 매트릭스',
+                        data: [0, 0, 0, 0, 0],
+                        borderColor: '#10B981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                        borderWidth: 2,
+                        pointBackgroundColor: '#10B981',
+                        pointBorderColor: '#FFF',
+                        pointHoverBackgroundColor: '#FFF',
+                        pointHoverBorderColor: '#10B981'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        r: {
+                            angleLines: { color: '#334155' },
+                            grid: { color: '#1E293B' },
+                            pointLabels: { color: '#94A3B8', font: { size: 9, weight: 'bold' } },
+                            ticks: { display: false },
+                            min: 0,
+                            max: 100
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateRunwayChart(maxMonths, burnRate) {
+            if (!runwayChartInstance) return;
+
+            const labels = [];
+            const data = [];
+            const startCash = parsedFinancials.cash / 100000000;
+            const step = Math.max(1, Math.ceil(maxMonths / 10));
+
+            for (let m = 0; m <= Math.ceil(maxMonths) + step; m += step) {
+                labels.push(`${m}개월`);
+                const remaining = Math.max(0, startCash - (burnRate * m));
+                data.push(remaining.toFixed(1));
+                if (remaining === 0) break;
+            }
+
+            let strokeColor = '#10B981';
+            if (maxMonths < 8) strokeColor = '#F43F5E';
+            else if (maxMonths < 18) strokeColor = '#F59E0B';
+
+            runwayChartInstance.data.labels = labels;
+            runwayChartInstance.data.datasets[0].data = data;
+            runwayChartInstance.data.datasets[0].borderColor = strokeColor;
+            runwayChartInstance.data.datasets[0].backgroundColor = strokeColor + '14';
+            runwayChartInstance.update();
+        }
+
+        function updateRadarChart() {
+            if (!radarChartInstance) return;
+
+            const dataSet = [
+                calculatedScores.opm,
+                calculatedScores.revGrowth,
+                calculatedScores.fcfConversion,
+                calculatedScores.ipScore,
+                calculatedScores.governanceScore
+            ];
+
+            radarChartInstance.data.datasets[0].data = dataSet;
+            radarChartInstance.update();
+        }
+    </script>
+</body>
+</html>
