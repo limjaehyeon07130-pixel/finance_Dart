@@ -27,8 +27,8 @@
     <!-- TOP TERMINAL HEADER -->
     <header class="border-b border-slate-800 pb-4 mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-            <h1 class="text-2xl font-black tracking-tight text-emerald-400">QUANT-ANALYST INVESTMENT COMMITTEE TERMINAL v4.5</h1>
-            <p class="text-xs text-slate-400 mt-1">O(1) 초고속 인메모리 맵퍼 & 다중 프록시 연동 스크리닝 대시보드</p>
+            <h1 class="text-2xl font-black tracking-tight text-emerald-400">QUANT-ANALYST INVESTMENT COMMITTEE TERMINAL v5.2</h1>
+            <p class="text-xs text-slate-400 mt-1">O(1) 실시간 인메모리 맵퍼 & 하이브리드 자동완성 투자심의 연산기</p>
         </div>
         <div class="flex items-center gap-3">
             <div class="bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-800 flex items-center gap-2">
@@ -98,7 +98,7 @@
                     </div>
                     <div class="text-[9px] text-slate-500 font-mono mt-1 flex justify-between">
                         <span>상태:</span>
-                        <span id="indexStatus" class="text-rose-400">색인 대기</span>
+                        <span id="indexStatus" class="text-emerald-400 font-bold">샘플 4개 색인완료</span>
                     </div>
                 </div>
             </div>
@@ -114,8 +114,8 @@
                 <div id="autocompleteList" class="absolute left-3 right-3 top-14 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl max-h-40 overflow-y-auto hidden z-50"></div>
                 
                 <div class="grid grid-cols-2 gap-2 mt-2 text-[10px] text-slate-400 font-mono bg-slate-900 p-2 rounded">
-                    <div>고유번호: <span id="targetCorpCode" class="text-emerald-400 font-bold">-</span></div>
-                    <div>상장구분: <span id="targetCorpType" class="text-slate-300 font-bold">-</span></div>
+                    <div>고유번호: <span id="targetCorpCode" class="text-emerald-400 font-bold">00434003</span></div>
+                    <div>상장구분: <span id="targetCorpType" class="text-slate-300 font-bold">비상장사</span></div>
                 </div>
             </div>
 
@@ -159,31 +159,31 @@
                         <label class="text-xs font-bold text-slate-300">DART 주요계정 원천 데이터 (JSON)</label>
                         <span class="text-[10px] text-slate-500 font-mono">탭 1</span>
                     </div>
-                    <textarea id="inputDartJson" class="w-full h-24 bg-slate-950 border border-slate-800 rounded-lg p-2 font-mono text-[10px] text-emerald-400 focus:outline-none resize-none leading-relaxed" placeholder="API 데이터 전처리 구역"></textarea>
+                    <textarea id="inputDartJson" oninput="calculateEverything()" class="w-full h-24 bg-slate-950 border border-slate-800 rounded-lg p-2 font-mono text-[10px] text-emerald-400 focus:outline-none resize-none leading-relaxed" placeholder="API 데이터 전처리 구역"></textarea>
                 </div>
 
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="text-xs font-bold text-slate-300 block mb-1">유형자산 취득 (CAPEX)</label>
-                        <input type="number" id="inputCapex" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-1.5 text-xs text-white focus:outline-none font-mono">
+                        <input type="number" id="inputCapex" oninput="calculateEverything()" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-1.5 text-xs text-white focus:outline-none font-mono">
                     </div>
                     <div>
                         <label class="text-xs font-bold text-slate-300 block mb-1">감가상각비</label>
-                        <input type="number" id="inputDepreciation" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-1.5 text-xs text-white focus:outline-none font-mono">
+                        <input type="number" id="inputDepreciation" oninput="calculateEverything()" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-1.5 text-xs text-white focus:outline-none font-mono">
                     </div>
                 </div>
 
                 <div>
                     <label class="text-xs font-bold text-slate-300 block mb-1">정성 사업의 내용 및 지재권 요약 (텍스트)</label>
-                    <textarea id="inputIpText" class="w-full h-20 bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-slate-300 focus:outline-none resize-none leading-relaxed"></textarea>
+                    <textarea id="inputIpText" oninput="calculateEverything()" class="w-full h-20 bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-slate-300 focus:outline-none resize-none leading-relaxed"></textarea>
                 </div>
 
                 <div class="bg-slate-950 p-2 border border-slate-800 rounded-lg">
                     <span class="text-[10px] font-bold text-amber-500 uppercase block mb-1">⚖️ 거버넌스 체크리스트 배점</span>
                     <div class="grid grid-cols-3 gap-1.5">
-                        <input type="number" id="govShareRatio" placeholder="대주주 %" class="w-full bg-slate-900 border border-slate-800 rounded p-1 text-[10px] text-white font-mono">
-                        <input type="number" id="govOutsideRatio" placeholder="사외이사 %" class="w-full bg-slate-900 border border-slate-800 rounded p-1 text-[10px] text-white font-mono">
-                        <select id="govControlRisk" class="w-full bg-slate-900 border border-slate-800 rounded p-1 text-[10px] text-slate-300">
+                        <input type="number" id="govShareRatio" oninput="calculateEverything()" placeholder="대주주 %" class="w-full bg-slate-900 border border-slate-800 rounded p-1 text-[10px] text-white font-mono">
+                        <input type="number" id="govOutsideRatio" oninput="calculateEverything()" placeholder="사외이사 %" class="w-full bg-slate-900 border border-slate-800 rounded p-1 text-[10px] text-white font-mono">
+                        <select id="govControlRisk" onchange="calculateEverything()" class="w-full bg-slate-900 border border-slate-800 rounded p-1 text-[10px] text-slate-300">
                             <option value="95">통제우수</option>
                             <option value="70">보통</option>
                             <option value="30">내부불안</option>
@@ -442,7 +442,7 @@
     <!-- JAVASCRIPT VALUATION LOGIC ENGINE -->
     <script>
         // 글로벌 상태 변수
-        let corpDatabaseMap = {}; // 초고속 해시 맵 구조로 개편 (key: corp_name)
+        let corpDatabaseMap = {}; // 초고속 해시 맵 구조 (key: corp_name)
         let corpNameList = []; // 자동완성용 배열
         let selectedCorpCode = "00434003"; // 기본값 다코
         let selectedCorpName = "다코";
@@ -469,7 +469,7 @@
         let runwayChartInstance = null;
         let radarChartInstance = null;
 
-        // 실존하는 기업들의 리얼 DART 데이터 기반 데이터셋 (시연용)
+        // 실존하는 기업들의 리얼 DART 데이터 기반 데이터셋 (시연용 프리셋)
         const realCorpPresets = {
             daco: {
                 name: "다코",
@@ -560,7 +560,8 @@
                 document.getElementById("dartApiKey").value = savedKey;
             }
             initCharts();
-            loadPresetSample(); // 첫 화면에 '다코' 실재 기업 프리셋 가동
+            initPresetsInIndexer(); // 중요: 엑셀 파일 없이도 검색 작동하도록 프리셋 결합
+            loadPresetSample(); 
         };
 
         // 프리셋에서 실존하는 기 구축된 데이터를 가져오기
@@ -588,6 +589,31 @@
             calculateEverything();
         }
 
+        // 초기 프리셋 4곳을 해시맵 색인에 자동 주입 (비상장사의 '상장사' 서브스트링 포함 오인식 버그 완전 박멸)
+        function initPresetsInIndexer() {
+            Object.keys(realCorpPresets).forEach(key => {
+                const preset = realCorpPresets[key];
+                if (!preset || !preset.name) return; // 안전 검증
+                
+                const safeName = String(preset.name);
+                const keyName = safeName.replace(/\s+/g, "").toLowerCase();
+                
+                // 버그 수정 지점: '비상장사'라는 문자열이 '상장사'라는 키워드를 보유하고 있어 crash 발생하던 오류 해결
+                const isListed = preset.type && preset.type.includes("상장사") && preset.type.includes("(");
+                const stock_code = isListed ? preset.type.split("(")[1].replace(")", "").trim() : "";
+                
+                const corpObj = {
+                    corp_code: preset.code,
+                    corp_name: safeName,
+                    stock_code: stock_code
+                };
+                if (!corpDatabaseMap[keyName]) {
+                    corpDatabaseMap[keyName] = corpObj;
+                    corpNameList.push(corpObj);
+                }
+            });
+        }
+
         function saveApiKey() {
             const key = document.getElementById("dartApiKey").value.trim();
             localStorage.setItem("DART_API_KEY", key);
@@ -608,8 +634,10 @@
                 const worksheet = workbook.Sheets[firstSheetName];
                 const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
                 
+                // 프리셋 유지한 채 병합 및 리셋
                 corpDatabaseMap = {};
                 corpNameList = [];
+                initPresetsInIndexer();
                 
                 let header = rows[0];
                 let codeIdx = 0;
@@ -617,7 +645,7 @@
                 let stockIdx = 3;
 
                 for(let i=0; i<header.length; i++) {
-                    const colName = String(header[i]).toLowerCase();
+                    const colName = String(header[i] || "").toLowerCase();
                     if(colName === 'corp_code') codeIdx = i;
                     if(colName === 'corp_name') nameIdx = i;
                     if(colName === 'stock_code') stockIdx = i;
@@ -625,7 +653,7 @@
 
                 for(let r = 1; r < rows.length; r++) {
                     const row = rows[r];
-                    if (row[codeIdx] && row[nameIdx]) {
+                    if (row && row[codeIdx] && row[nameIdx]) {
                         let rawCode = String(row[codeIdx]).trim();
                         while(rawCode.length < 8) {
                             rawCode = "0" + rawCode;
@@ -657,7 +685,8 @@
 
         // 키 입력 시 동적 제안 목록 처리 알고리즘 (O(1) 기반 속도 한계 돌파)
         function handleSearchInput() {
-            const query = document.getElementById("searchCompanyName").value.trim().replace(/\s+/g, "").toLowerCase();
+            const rawVal = document.getElementById("searchCompanyName").value;
+            const query = (rawVal || "").trim().replace(/\s+/g, "").toLowerCase();
             const listContainer = document.getElementById("autocompleteList");
             
             if (!query || corpNameList.length === 0) {
@@ -666,9 +695,10 @@
             }
 
             // 최대 5개 매칭 결과만 필터링하여 렌더링 성능 극대화
-            const matched = corpNameList.filter(item => 
-                item.corp_name.replace(/\s+/g, "").toLowerCase().includes(query)
-            ).slice(0, 5);
+            const matched = corpNameList.filter(item => {
+                const safeName = String(item.corp_name || "");
+                return safeName.replace(/\s+/g, "").toLowerCase().includes(query);
+            }).slice(0, 5);
 
             if (matched.length > 0) {
                 listContainer.innerHTML = matched.map(item => `
@@ -689,16 +719,12 @@
             searchAndFetchData();
         }
 
-        // 기업 통합 검색 엔진 (O(1) 해시 매핑 검색 적용)
+        // 기업 통합 검색 엔진 (O(1) 해시 매핑 검색 및 자동 데이터 로딩 통합)
         function searchAndFetchData() {
-            const queryName = document.getElementById("searchCompanyName").value.trim().replace(/\s+/g, "").toLowerCase();
+            const rawVal = document.getElementById("searchCompanyName").value;
+            const queryName = (rawVal || "").trim().replace(/\s+/g, "").toLowerCase();
             if (!queryName) {
                 alert("검색할 기업 명칭을 입력해주십시오.");
-                return;
-            }
-
-            if (Object.keys(corpDatabaseMap).length === 0) {
-                alert("제공해주신 실제 기업 고유번호 파일(K_Corp.xlsx 등)을 우측 상단 매퍼 영역에 먼저 넣어주십시오.");
                 return;
             }
 
@@ -712,7 +738,7 @@
             }
 
             if (!matched) {
-                alert(`'${queryName}' 에 부합하는 실존 기업을 K_Corp 매퍼 데이터베이스 내에서 찾지 못했습니다.`);
+                alert(`'${rawVal}' 에 부합하는 실존 기업을 K_Corp 매퍼 데이터베이스 내에서 찾지 못했습니다.`);
                 return;
             }
 
@@ -725,9 +751,27 @@
             
             // 자동완성 레이어 하이딩
             document.getElementById("autocompleteList").classList.add("hidden");
+
+            // 선택된 기업이 프리셋(다코, 브레인 등)에 존재하는 경우 정밀 기입 데이터 자동 세팅
+            const presetKey = Object.keys(realCorpPresets).find(k => realCorpPresets[k].name === matched.corp_name);
+            if (presetKey) {
+                const preset = realCorpPresets[presetKey];
+                document.getElementById("inputDartJson").value = JSON.stringify(preset.json, null, 4);
+                document.getElementById("inputCapex").value = preset.capex;
+                document.getElementById("inputDepreciation").value = preset.depreciation;
+                document.getElementById("inputIpText").value = preset.ipText;
+                document.getElementById("govShareRatio").value = preset.gov.share;
+                document.getElementById("govOutsideRatio").value = preset.gov.outside;
+                document.getElementById("govControlRisk").value = preset.gov.risk;
+                document.getElementById("tab1SourceBadge").innerText = `데이터: 실존 ${preset.name} 프리셋`;
+            } else {
+                document.getElementById("tab1SourceBadge").innerText = "DART API 연결 대기 중";
+            }
+
+            calculateEverything();
         }
 
-        // DART 실시간 API 호출 연동 및 CORS 프록시 우회
+        // 다중 백업 프록시 우회 동기화 (Sequential Fallback Chain)
         async function fetchDartFinancialData() {
             const apiKey = document.getElementById("dartApiKey").value.trim();
             if (!apiKey) {
@@ -741,37 +785,40 @@
 
             const year = document.getElementById("targetYear").value;
             const reprtCode = document.getElementById("targetReportCode").value;
-
             const dartApiUrl = `https://opendart.fss.or.kr/api/fnlttSinglAcnt.json?crtfc_key=${apiKey}&corp_code=${selectedCorpCode}&bsns_year=${year}&reprt_code=${reprtCode}`;
             
-            const proxyType = document.getElementById("proxySelector").value;
-            let proxiedUrl = "";
+            // 프록시 목록 순차 체인
+            const proxies = [
+                `https://api.allorigins.win/raw?url=${encodeURIComponent(dartApiUrl)}`,
+                `https://cors-anywhere.herokuapp.com/${dartApiUrl}`,
+                `https://thingproxy.freeboard.io/fetch/${dartApiUrl}`,
+                dartApiUrl // 직통
+            ];
 
-            if (proxyType === "allorigins") {
-                proxiedUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(dartApiUrl)}`;
-            } else if (proxyType === "corsanywhere") {
-                proxiedUrl = `https://cors-anywhere.herokuapp.com/${dartApiUrl}`;
-            } else {
-                proxiedUrl = dartApiUrl;
+            let success = false;
+            
+            for (let i = 0; i < proxies.length; i++) {
+                try {
+                    document.getElementById("tab1SourceBadge").innerText = `DART 실시간 패치 중 (우회로 ${i + 1}단계)...`;
+                    const response = await fetch(proxies[i]);
+                    if (!response.ok) throw new Error("CORS_PROXY_FAILED");
+                    const resData = await response.json();
+
+                    if (resData.status === "000") {
+                        processDartApiResponse(resData.list);
+                        success = true;
+                        break;
+                    } else if (resData.status !== "000" && resData.message) {
+                        alert(`[DART API Error] ${resData.message}`);
+                        document.getElementById("tab1SourceBadge").innerText = "조회 에러";
+                        return;
+                    }
+                } catch (err) {
+                    console.warn(`프록시 ${i + 1}호 오프라인 상태:`, err);
+                }
             }
 
-            document.getElementById("tab1SourceBadge").innerText = "DART 실시간 패치 중...";
-
-            try {
-                const response = await fetch(proxiedUrl);
-                if (!response.ok) throw new Error("CORS_BLOCKED_OR_PROXY_LIMIT");
-                const resData = await response.json();
-
-                if (resData.status !== "000") {
-                    alert(`[DART Error] ${resData.message}`);
-                    document.getElementById("tab1SourceBadge").innerText = "조회 실패";
-                    return;
-                }
-
-                // API 리스트 가공 처리
-                processDartApiResponse(resData.list);
-            } catch (err) {
-                console.error(err);
+            if (!success) {
                 document.getElementById("failedUrlBox").value = dartApiUrl;
                 document.getElementById("errorGuideModal").classList.remove("hidden");
                 document.getElementById("tab1SourceBadge").innerText = "네트워크 동기화 지연";
@@ -815,7 +862,7 @@
             return (val / 100000000).toLocaleString(undefined, { maximumFractionDigits: 1 });
         }
 
-        // 전체 금융 계산 프로세스 개시
+        // 전체 금융 계산 프로세스 개시 및 반응형 실시간 렌더링 동기화
         function calculateEverything() {
             const corpName = document.getElementById("inputTargetCorp").value.trim() || "지정 기업";
             document.getElementById("headerTargetName").innerText = `${corpName} (ACTIVE_TARGET)`;
@@ -835,11 +882,13 @@
 
         function parseTab1Financials() {
             const rawJson = document.getElementById("inputDartJson").value;
+            if (!rawJson) return;
+            
             let parsed;
             try {
                 parsed = JSON.parse(rawJson);
             } catch(e) {
-                alert("주요계정 JSON 포맷에 결함이 존재합니다.");
+                // 수동 입력 도중 포맷 미완성 상태일 때 연산 중단
                 return;
             }
 
@@ -848,7 +897,7 @@
             parsedFinancials = { revenue: 0, revenuePrev: 0, op: 0, netIncome: 0, cfo: 0, cash: 0 };
 
             parsed.list.forEach(item => {
-                const name = item.account_nm.replace(/\s+/g, "");
+                const name = String(item.account_nm || "").replace(/\s+/g, "");
                 const currentAmt = parseFloat(item.thstrm_amount) || 0;
                 const prevAmt = parseFloat(item.frmr_amount) || 0;
 
@@ -997,7 +1046,7 @@
         }
 
         function calculateTab3IP() {
-            const ipText = document.getElementById("inputIpText").value;
+            const ipText = document.getElementById("inputIpText").value || "";
             
             const criteria = [
                 { keyword: "신규", score: 10, color: "text-blue-400 bg-blue-500/10 border-blue-500/20" },
