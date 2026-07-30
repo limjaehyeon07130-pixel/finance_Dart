@@ -771,60 +771,53 @@
             calculateEverything();
         }
 
-        // 다중 백업 프록시 우회 동기화 (Sequential Fallback Chain)
-        async function fetchDartFinancialData() {
-            const apiKey = document.getElementById("dartApiKey").value.trim();
-            if (!apiKey) {
-                alert("DART API 인증키를 우측 입력창에 넣고 진행해주십시오.");
-                return;
-            }
-            if (!selectedCorpCode) {
-                alert("조회할 기업을 먼저 선택하십시오.");
-                return;
-            }
+     async function fetchDartFinancialData() {
+  const apiKey = document.getElementById("dartApiKey").value.trim();
 
-            const year = document.getElementById("targetYear").value;
-            const reprtCode = document.getElementById("targetReportCode").value;
-            const dartApiUrl = `https://opendart.fss.or.kr/api/fnlttSinglAcnt.json?crtfc_key=${apiKey}&corp_code=${selectedCorpCode}&bsns_year=${year}&reprt_code=${reprtCode}`;
-            
-            // 프록시 목록 순차 체인
-            const proxies = [
-                `https://api.allorigins.win/raw?url=${encodeURIComponent(dartApiUrl)}`,
-                `https://cors-anywhere.herokuapp.com/${dartApiUrl}`,
-                `https://thingproxy.freeboard.io/fetch/${dartApiUrl}`,
-                dartApiUrl // 직통
-            ];
+  if (!apiKey) {
+    alert("DART API 인증키를 입력해 주십시오.");
+    return;
+  }
 
-            let success = false;
-            
-            for (let i = 0; i < proxies.length; i++) {
-                try {
-                    document.getElementById("tab1SourceBadge").innerText = `DART 실시간 패치 중 (우회로 ${i + 1}단계)...`;
-                    const response = await fetch(proxies[i]);
-                    if (!response.ok) throw new Error("CORS_PROXY_FAILED");
-                    const resData = await response.json();
+  if (!selectedCorpCode) {
+    alert("조회할 기업을 먼저 선택하십시오.");
+    return;
+  }
 
-                    if (resData.status === "000") {
-                        processDartApiResponse(resData.list);
-                        success = true;
-                        break;
-                    } else if (resData.status !== "000" && resData.message) {
-                        alert(`[DART API Error] ${resData.message}`);
-                        document.getElementById("tab1SourceBadge").innerText = "조회 에러";
-                        return;
-                    }
-                } catch (err) {
-                    console.warn(`프록시 ${i + 1}호 오프라인 상태:`, err);
-                }
-            }
+  const year = document.getElementById("targetYear").value;
+  const reprtCode = document.getElementById("targetReportCode").value;
+  const backendBaseUrl = "http://localhost:3000";
+  const params = new URLSearchParams({
+    apiKey,
+    corpCode: selectedCorpCode,
+    year,
+    reprtCode,
+  });
 
-            if (!success) {
-                document.getElementById("failedUrlBox").value = dartApiUrl;
-                document.getElementById("errorGuideModal").classList.remove("hidden");
-                document.getElementById("tab1SourceBadge").innerText = "네트워크 동기화 지연";
-            }
-        }
+  try {
+    document.getElementById("tab1SourceBadge").innerText =
+      "DART 데이터 조회 중...";
 
+    const response = await fetch(
+      `${backendBaseUrl}/api/dart/financials?${params.toString()}`
+    );
+
+    const data = await response.json();
+
+    if (!response.ok || data.status !== "000") {
+      throw new Error(data.message || "DART 데이터 조회에 실패했습니다.");
+    }
+
+    processDartApiResponse(data.list);
+
+    document.getElementById("tab1SourceBadge").innerText =
+      `데이터: DART ${data.cached ? "캐시" : "실시간"} (${selectedCorpName})`;
+  } catch (error) {
+    console.error(error);
+    document.getElementById("tab1SourceBadge").innerText = "조회 에러";
+    alert(`DART 조회 오류: ${error.message}`);
+  }
+}
         function closeErrorModal() {
             document.getElementById("errorGuideModal").classList.add("hidden");
         }
