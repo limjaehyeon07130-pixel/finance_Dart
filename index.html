@@ -857,7 +857,8 @@
 
         // 전체 금융 계산 프로세스 개시 및 반응형 실시간 렌더링 동기화
         function calculateEverything() {
-            const corpName = document.getElementById("inputTargetCorp").value.trim() || "지정 기업";
+           const targetCorpInput = document.getElementById("inputTargetCorp");
+const corpName = targetCorpInput ? targetCorpInput.value.trim() : "지정 기업";
             document.getElementById("headerTargetName").innerText = `${corpName} (ACTIVE_TARGET)`;
 
             // 1. 탭 1 파싱 및 연산
